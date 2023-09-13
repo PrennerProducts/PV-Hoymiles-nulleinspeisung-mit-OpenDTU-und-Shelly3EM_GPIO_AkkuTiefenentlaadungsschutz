@@ -21,6 +21,8 @@ GPIO.setmode(GPIO.BCM)                               # Setzen Sie den Modus auf 
 PIN = 17                                             # GPIO Pin 
 GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # Pin als Eingang konfigurieren
 previous_gpio_state = GPIO.LOW  # Nehmen wir an, dass der Startzustand LOW ist
+loop_counter = 0
+gpio_check_frequency = 12  # GPIO wird nur alle 12 Durchläufe abgefragt (also etwa alle 60 Sekunden bei einem sleep von 5 Sekunden)
 
 # Überprüfen, ob der Pin HIGH ist
 def is_relay_high():
@@ -105,19 +107,22 @@ try:
     
     
     # Tiefentladungsschutz checke GPIO Pin ob Akku noch genügend Spannung hat
-        current_gpio_state = GPIO.HIGH if is_relay_high() else GPIO.LOW
-        
-        if current_gpio_state != previous_gpio_state:
-            if current_gpio_state == GPIO.HIGH:
-                akkuVoltageOK = False
-                SetHoymilesPowerStatusOpenDTU(serial, akkuVoltageOK)
-                print(f'Akkuspannung zu niedrig, Hoymalis Inverter ist ausgeschaltet, Tiefentladungsschutz aktiviert.')
-            else:
-                akkuVoltageOK = True
-                SetHoymilesPowerStatusOpenDTU(serial, akkuVoltageOK)
-                print(f'Akku Voltage OK, Hoymails Inverter ist an.')
+        if loop_counter % gpio_check_frequency == 0:  # Nur alle 'gpio_check_frequency' Durchläufe
+            current_gpio_state = GPIO.HIGH if is_relay_high() else GPIO.LOW
+            
+            if current_gpio_state != previous_gpio_state:
+                if current_gpio_state == GPIO.HIGH:
+                    akkuVoltageOK = False
+                    SetHoymilesPowerStatusOpenDTU(serial, akkuVoltageOK)
+                    print(f'Akkuspannung zu niedrig, Hoymalis Inverter ist ausgeschaltet, Tiefentladungsschutz aktiviert.')
+                else:
+                    akkuVoltageOK = True
+                    SetHoymilesPowerStatusOpenDTU(serial, akkuVoltageOK)
+                    print(f'Akku Voltage OK, Hoymails Inverter ist an.')
 
-            previous_gpio_state = current_gpio_state
+                previous_gpio_state = current_gpio_state
+            
+        loop_counter += 1  # Zähler nach jedem Schleifendurchlauf erhöhen
             
         sys.stdout.flush() # write out cached messages to stdout
         time.sleep(5) # wait
